@@ -3,7 +3,7 @@
 # %% auto 0
 __all__ = ['comp', 'path', 'df_train_proteins', 'df_train_clinical', 'df_train_peptides', 'df_supplemental', 'df_train',
            'dep_var', 'procs', 'cont', 'cat', 'splits', 'to', 'dls', 'xs', 'ys', 'valid_xs', 'valid_ys', 'learn',
-           'SMAPE']
+           'MultiTargetSMAPE']
 
 # %% ../pb_parkinsons_prog.ipynb 7
 from fastai.tabular.all import *
@@ -43,7 +43,7 @@ splits = RandomSplitter(valid_pct=0.2)(range_of(df_train))
 to = TabularPandas(df_train, procs, cat, cont, y_names=dep_var, splits=splits)
 
 # %% ../pb_parkinsons_prog.ipynb 25
-class SMAPE(Metric):
+class MultiTargetSMAPE(Metric):
     def __init__(self):
         super().__init__()
     
@@ -53,8 +53,13 @@ class SMAPE(Metric):
         
     def accumulate(self, learn):
         pred,targ = learn.pred, learn.y
-        self.total += torch.abs(pred - targ) / (torch.abs(pred) + torch.abs(targ))
-        self.count += 1
+        denom = torch.abs(pred) + torch.abs(targ)
+        non_zero_denom = denom != 0
+        num = torch.abs(pred - targ)
+        smape = torch.zeros_like(num)
+        smape[non_zero_denom] = num[non_zero_denom] / denom[non_zero_denom]
+        self.total += smape.sum(dim=0)
+        self.count += learn.y.size(0)
     
     @property
     def value(self):
@@ -62,7 +67,8 @@ class SMAPE(Metric):
     
     @property
     def name(self):
-        return 'smape'
+        return 'multi_target_smape'
+
 
 # %% ../pb_parkinsons_prog.ipynb 26
 dls = to.dataloaders(bs=256)
@@ -72,7 +78,7 @@ xs, ys = to.train.xs, to.train.ys
 valid_xs, valid_ys = to.valid.xs, to.valid.ys
 
 # %% ../pb_parkinsons_prog.ipynb 32
-learn = tabular_learner(dls, layers=[200,100], metrics=[accuracy_multi], n_out=4, y_range=(0, 80), loss_func=mse)
+learn = tabular_learner(dls, layers=[200,100], metrics=[MultiTargetSMAPE()], n_out=4, y_range=(0, 80), loss_func=mse)
 
 # %% ../pb_parkinsons_prog.ipynb 34
 learn.fit_one_cycle(3, 1e-3)
