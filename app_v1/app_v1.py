@@ -22,27 +22,27 @@ from fastkaggle import *
 comp = 'amp-parkinsons-disease-progression-prediction'
 path = setup_comp(comp, install='fastai')
 
-# %% ../pb_parkinsons_prog.ipynb 11
+# %% ../pb_parkinsons_prog.ipynb 12
 df_train_proteins = pd.read_csv(path/"train_proteins.csv", low_memory=False)
 df_train_clinical = pd.read_csv(path/"train_clinical_data.csv", low_memory=False)
 df_train_peptides = pd.read_csv(path/"train_peptides.csv", low_memory=False)
 df_supplemental = pd.read_csv(path/"supplemental_clinical_data.csv", low_memory=False)
 
-# %% ../pb_parkinsons_prog.ipynb 15
+# %% ../pb_parkinsons_prog.ipynb 18
 df_train = df_train_proteins.merge(df_train_clinical, on=['patient_id', 'visit_id', 'visit_month'], how='left')
 
-# %% ../pb_parkinsons_prog.ipynb 19
+# %% ../pb_parkinsons_prog.ipynb 24
 dep_var = ['updrs_1', 'updrs_2', 'updrs_3', 'updrs_4']
 
-# %% ../pb_parkinsons_prog.ipynb 20
+# %% ../pb_parkinsons_prog.ipynb 26
 procs = [Categorify, FillMissing, Normalize]
 cont, cat = cont_cat_split(df_train, dep_var=dep_var, max_card=1)
 splits = RandomSplitter(valid_pct=0.2)(range_of(df_train))
 
-# %% ../pb_parkinsons_prog.ipynb 21
+# %% ../pb_parkinsons_prog.ipynb 28
 to = TabularPandas(df_train, procs, cat, cont, y_names=dep_var, splits=splits)
 
-# %% ../pb_parkinsons_prog.ipynb 25
+# %% ../pb_parkinsons_prog.ipynb 33
 class MultiTargetSMAPE(Metric):
     def __init__(self):
         super().__init__()
@@ -70,15 +70,15 @@ class MultiTargetSMAPE(Metric):
         return 'multi_target_smape'
 
 
-# %% ../pb_parkinsons_prog.ipynb 26
+# %% ../pb_parkinsons_prog.ipynb 35
 dls = to.dataloaders(bs=256)
 
-# %% ../pb_parkinsons_prog.ipynb 29
+# %% ../pb_parkinsons_prog.ipynb 38
 xs, ys = to.train.xs, to.train.ys
 valid_xs, valid_ys = to.valid.xs, to.valid.ys
 
-# %% ../pb_parkinsons_prog.ipynb 32
+# %% ../pb_parkinsons_prog.ipynb 42
 learn = tabular_learner(dls, layers=[200,100], metrics=[MultiTargetSMAPE()], n_out=4, y_range=(0, 80), loss_func=mse)
 
-# %% ../pb_parkinsons_prog.ipynb 34
-learn.fit_one_cycle(3, 1e-3)
+# %% ../pb_parkinsons_prog.ipynb 46
+learn.fit_one_cycle(10, 1e-3)
