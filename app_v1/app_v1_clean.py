@@ -5,7 +5,6 @@ __all__ = ['comp', 'path', 'protein_train_df', 'clinical_train_df', 'peptide_tra
            'peptide_test_df', 'updrs_test_df', 'train_df', 'median_targs', 'dep_var', 'procs', 'to', 'dls', 'learn',
            'xs', 'ys', 'valid_xs', 'valid_ys', 'MultiTargetSMAPE']
 
-# %% ../pb_parkinsons_prog.ipynb 7
 from fastai.tabular.all import *
 
 import seaborn as sns
@@ -15,49 +14,38 @@ import tqdm
 pd.options.display.max_rows = 20
 pd.options.display.max_columns = 8
 
-# %% ../pb_parkinsons_prog.ipynb 8
 try: import fastkaggle
 except ModuleNotFoundError:
     !pip install -Uq fastkaggle
 
 from fastkaggle import *
 
-# %% ../pb_parkinsons_prog.ipynb 10
 comp = 'amp-parkinsons-disease-progression-prediction'
 path = setup_comp(comp, install='fastai')
 
-# %% ../pb_parkinsons_prog.ipynb 13
 protein_train_df = pd.read_csv(path/"train_proteins.csv", low_memory=False)
 clinical_train_df = pd.read_csv(path/"train_clinical_data.csv", low_memory=False)
 peptide_train_df = pd.read_csv(path/"train_peptides.csv", low_memory=False)
 supplement_train_df = pd.read_csv(path/"supplemental_clinical_data.csv", low_memory=False)
 
-# %% ../pb_parkinsons_prog.ipynb 15
 protein_test_df = pd.read_csv(path/"example_test_files/test_proteins.csv", low_memory=False)
 peptide_test_df = pd.read_csv(path/"example_test_files/test_peptides.csv", low_memory=False)
 updrs_test_df = pd.read_csv(path/"example_test_files/test.csv", low_memory=False)
 
-# %% ../pb_parkinsons_prog.ipynb 41
 train_df = peptide_train_df.merge(protein_train_df, on=['patient_id', 'visit_id', 'visit_month', 'UniProt'], how='left')
 train_df = train_df.merge(clinical_train_df, on=['patient_id', 'visit_id', 'visit_month'], how='left')
 
-# %% ../pb_parkinsons_prog.ipynb 52
 median_targs = df_train[['updrs_1', 'updrs_2', 'updrs_3', 'updrs_4']].median()
 
-# %% ../pb_parkinsons_prog.ipynb 53
 df_train[['updrs_1', 'updrs_2', 'updrs_3', 'updrs_4']] = df_train[['updrs_1', 'updrs_2', 'updrs_3', 'updrs_4']].fillna(median_targs)
 
-# %% ../pb_parkinsons_prog.ipynb 55
 dep_var = ['updrs_1', 'updrs_2', 'updrs_3', 'updrs_4']
 
-# %% ../pb_parkinsons_prog.ipynb 58
 procs = [Categorify, FillMissing, Normalize]
 
 
-# %% ../pb_parkinsons_prog.ipynb 62
 to = TabularPandas(df_train, procs, cat, cont, y_names=dep_var, splits=splits)
 
-# %% ../pb_parkinsons_prog.ipynb 64
 class MultiTargetSMAPE(Metric):
     def __init__(self):
         super().__init__()
@@ -85,15 +73,11 @@ class MultiTargetSMAPE(Metric):
         return 'multi_target_smape'
 
 
-# %% ../pb_parkinsons_prog.ipynb 66
 dls = to.dataloaders(bs=256)
 
-# %% ../pb_parkinsons_prog.ipynb 68
 learn = tabular_learner(dls, layers=[200,100], metrics=[MultiTargetSMAPE()], n_out=4, y_range=(0, 80), loss_func=mse)
 
-# %% ../pb_parkinsons_prog.ipynb 72
 learn.fit_one_cycle(10, 1e-3)
 
-# %% ../pb_parkinsons_prog.ipynb 74
 xs, ys = to.train.xs, to.train.ys
 valid_xs, valid_ys = to.valid.xs, to.valid.ys
